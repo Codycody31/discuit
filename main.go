@@ -36,7 +36,7 @@ func main() {
 	// Load config file.
 	conf, err := config.Parse("./config.yaml")
 	if err != nil {
-		log.Fatal("Error parsing config file: ", err)
+		log.Fatal("Error loading config: ", err)
 	}
 
 	// Connect to MariaDB.
@@ -49,13 +49,21 @@ func main() {
 		searchClient = meilisearch.NewSearchClient(conf.MeiliHost, conf.MeiliKey)
 	}
 
-	if err := core.CreateGhostUser(db); err != nil {
-		log.Fatal("Error creating the ghost user: ", err)
-	}
-
 	flags, err := parseFlags()
 	if err != nil {
 		log.Fatal("Error parsing falgs: ", err)
+	}
+
+	if !flags.runMigrations {
+		if err := core.CreateGhostUser(db); err != nil {
+			log.Fatal("Error creating the ghost user: ", err)
+		}
+	}
+
+	if !flags.runMigrations {
+		if err := core.CreateGhostUser(db); err != nil {
+			log.Fatal("Error creating the ghost user: ", err)
+		}
 	}
 
 	runServer, err := runFlagCommands(db, searchClient, conf, flags)
@@ -249,6 +257,8 @@ type flags struct {
 	newBadge               string
 	deleteUser             string
 
+	injectConfig bool // inject env vars to yaml
+
 	// MeiliSearch flags
 	meiliIndexCommunities bool
 	meiliResetIndex       string
@@ -288,6 +298,8 @@ func parseFlags() (*flags, error) {
 	flag.BoolVar(&f.meiliIndexCommunities, "meili-index-communities", false, "Index all communities in MeiliSearch")
 	flag.StringVar(&f.meiliResetIndex, "meili-reset-index", "", "Reset MeiliSearch index")
 
+	flag.BoolVar(&f.injectConfig, "inject-config", false, "Inject environment variables to yaml")
+
 	flag.Parse()
 	return f, nil
 }
@@ -319,6 +331,7 @@ func runFlagCommands(db *sql.DB, searchClient *meilisearch.MeiliSearch, conf *co
 			return false, err
 		}
 		log.Println("Migrations ran successfully.")
+		return false, nil
 	}
 
 	// New-migration command:
@@ -493,6 +506,18 @@ func runFlagCommands(db *sql.DB, searchClient *meilisearch.MeiliSearch, conf *co
 			return false, fmt.Errorf("failed to reset MeiliSearch index: %w", err)
 		}
 		log.Printf("MeiliSearch index %s reset\n", flags.meiliResetIndex)
+		return false, nil
+	}
+
+	if flags.injectConfig {
+		yaml, err := config.RecreateYaml(*conf)
+		if err != nil {
+			return false, fmt.Errorf("failed to recreate yaml: %w", err)
+		}
+
+		//
+		fmt.Println(yaml)
+
 		return false, nil
 	}
 
