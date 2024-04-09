@@ -27,9 +27,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
 # Install Go
-RUN curl -LO https://go.dev/dl/go$GOVERSION.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go$GOVERSION.linux-amd64.tar.gz && \
-    rm go$GOVERSION.linux-amd64.tar.gz
+RUN curl -LO https://go.dev/dl/go$GOVERSION.linux-arm64.tar.gz && \
+    tar -C /usr/local -xzf go$GOVERSION.linux-arm64.tar.gz && \
+    rm go$GOVERSION.linux-arm64.tar.gz
 
 # Set PATH for Go
 ENV PATH=$PATH:/usr/local/go/bin
@@ -43,7 +43,7 @@ COPY . .
 RUN mv config.default.yaml config.yaml
 
 # Build the backend
-RUN GOOS=linux GOARCH=amd64 go build -o discuit .
+RUN GOOS=linux GOARCH=arm64 go build -o discuit .
 
 # Build the frontend
 RUN cd ui && npm ci
