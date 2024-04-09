@@ -60,12 +60,6 @@ func main() {
 		}
 	}
 
-	if !flags.runMigrations {
-		if err := core.CreateGhostUser(db); err != nil {
-			log.Fatal("Error creating the ghost user: ", err)
-		}
-	}
-
 	runServer, err := runFlagCommands(db, searchClient, conf, flags)
 	if err != nil {
 		log.Fatal("Error running flag commands: ", err)

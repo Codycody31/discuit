@@ -98,6 +98,11 @@ func Parse(path string) (*Config, error) {
 		"DISCUIT_DB_PASSWORD": &c.DBPassword,
 		"DISCUIT_DB_NAME":     &c.DBName,
 
+		// MeiliSearch credentials.
+		"DISCUIT_MEILI_ENABLED": &c.MeiliEnabled,
+		"DISCUIT_MEILI_HOST":    &c.MeiliHost,
+		"DISCUIT_MEILI_KEY":     &c.MeiliKey,
+
 		"DISCUIT_SESSION_COOKIE_NAME": &c.SessionCookieName,
 
 		"DISCUIT_REDIS_ADDRESS": &c.RedisAddress,
