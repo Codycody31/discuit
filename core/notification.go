@@ -407,6 +407,19 @@ func (n *Notification) SendPushNotification(ctx context.Context) error {
 		return nil
 	}
 
+	// Check if the user who is receiving the notification hasn't muted the user if comment
+	if n.Type == NotificationTypeNewComment {
+		mutes, err := GetMutedUsers(ctx, n.db, n.UserID, false)
+		if err != nil {
+			return err
+		}
+		for _, m := range mutes {
+			if m.MutedUser.Username == n.Notif.(*NotificationNewComment).CommentAuthor {
+				return nil
+			}
+		}
+	}
+
 	return SendPushNotification(ctx, n.db, n.UserID, data, &webpush.Options{
 		Subscriber:      email,
 		VAPIDPublicKey:  keys.Public,
