@@ -18,6 +18,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.0 // indirect
+	github.com/TwiN/go-away v1.6.13 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v20.10.21+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -27,4 +28,5 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 )
