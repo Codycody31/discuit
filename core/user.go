@@ -1160,6 +1160,19 @@ func CreateGhostUser(db *sql.DB) error {
 	return nil
 }
 
+func CreateAutomodUser(db *sql.DB) error {
+	var username string
+	if err := db.QueryRow("SELECT username_lc FROM users WHERE username_lc = ?", "automod").Scan(&username); err != nil {
+		if err == sql.ErrNoRows {
+			// Automod user not found; create one.
+			_, createErr := RegisterUser(context.Background(), db, "automod", "", utils.GenerateStringID(48))
+			return createErr
+		}
+		return err
+	}
+	return nil
+}
+
 func CalcGhostUserID(user uid.ID, unique string) string {
 	b := make([]byte, len(user)+len(unique))
 	copy(b, user[:])

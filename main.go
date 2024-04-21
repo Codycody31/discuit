@@ -46,6 +46,10 @@ func main() {
 		log.Fatal("Error creating the ghost user: ", err)
 	}
 
+	if err := core.CreateAutomodUser(db); err != nil {
+		log.Fatal("Error creating the automod user: ", err)
+	}
+
 	flags, err := parseFlags()
 	if err != nil {
 		log.Fatal("Error parsing falgs: ", err)
