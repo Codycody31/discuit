@@ -40,6 +40,30 @@ const Modtools = () => {
           <Link className={isActiveCls('sidebar-item', pathname === '/admin')} to={`/admin`}>
             Dashboard
           </Link>
+          <Link
+            className={isActiveCls('sidebar-item', pathname === '/admin/analytics')}
+            to={`/admin/analytics`}
+          >
+            Analytics
+          </Link>
+          <Link
+            className={isActiveCls('sidebar-item', pathname === '/admin/users')}
+            to={`/admin/users`}
+          >
+            Users
+          </Link>
+          <Link
+            className={isActiveCls('sidebar-item', pathname === '/admin/posts')}
+            to={`/admin/posts`}
+          >
+            Posts
+          </Link>
+          <Link
+            className={isActiveCls('sidebar-item', pathname === '/admin/comments')}
+            to={`/admin/comments`}
+          >
+            Comments
+          </Link>
         </div>
         <Switch>
           <Route exact path={path}>
