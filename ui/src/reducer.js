@@ -6,6 +6,7 @@ import feedsReducer from './slices/feedsSlice';
 import mainReducer from './slices/mainSlice';
 import postsReducer from './slices/postsSlice';
 import usersReducer from './slices/usersSlice';
+import adminReducer from './slices/adminSlice';
 
 const rootReducer = combineReducers({
   main: mainReducer,
@@ -14,6 +15,7 @@ const rootReducer = combineReducers({
   comments: commentsReducer,
   communities: communitiesReducer,
   users: usersReducer,
+  admin: adminReducer,
 });
 
 export default rootReducer;

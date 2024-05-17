@@ -126,6 +126,11 @@ const Sidebar = ({ isMobile = false }) => {
               <Search />
             </div>
           )}
+          {loggedIn && user?.isAdmin && (
+            <Link className="sidebar-item" to="/admin" onClick={handleClose}>
+              <span>Admin Dashboard</span>
+            </Link>
+          )}
           <Link to={homePageLink('/')} className="sidebar-item with-image" onClick={handleClose}>
             <svg
               width="24"

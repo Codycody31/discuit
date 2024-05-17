@@ -61,6 +61,7 @@ import AllCommunities from './pages/AllCommunities';
 import Offline from './pages/Offline';
 import AppUpdate from './AppUpdate';
 import PushNotifications from './PushNotifications';
+import Admin from './pages/Admin';
 
 // Value taken from _mixins.scss file.
 const tabletBreakpoint = 1170;
@@ -314,6 +315,9 @@ const AppSwitch = () => {
         </Route>
         <Route exact path="/markdown_guide">
           <MarkdownGuide />
+        </Route>
+        <Route exact path="/admin">
+          <Admin />
         </Route>
         <Route exact path="/:name">
           <SlashRoute />
