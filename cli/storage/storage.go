@@ -51,7 +51,7 @@ var Command = &cli.Command{
 							Secure: useSSL,
 						})
 						if err != nil {
-							log.Fatalln(err)
+							return err
 						}
 
 						// Get path to images dir
@@ -61,7 +61,7 @@ var Command = &cli.Command{
 						}
 						p, err = filepath.Abs(p)
 						if err != nil {
-							log.Fatalf("Error attempting to set the images folder location (%s): %v", p, err)
+							return err
 						}
 
 						// Get all images
@@ -72,7 +72,7 @@ var Command = &cli.Command{
 							return nil
 						})
 						if err != nil {
-							log.Fatalf("impossible to walk directories: %s", err)
+							return err
 						}
 						fmt.Printf("Found %d images to upload\n", len(imagesToUpload))
 
