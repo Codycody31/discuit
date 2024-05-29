@@ -34,3 +34,10 @@ disableForumCreation: true
 forumCreationReqPoints: 10
 maxForumsPerUser: 10
 imagesFolderPath: "images"
+
+# S3
+s3Enabled: false
+s3Bucket:
+s3Region:
+S3SecretAccessKeyID:
+s3SecretAccessKey:

@@ -59,6 +59,15 @@ type Config struct {
 
 	// The location where images are saved on disk.
 	ImagesFolderPath string `yaml:"imagesFolderPath"`
+
+	// S3
+	S3Enabled           bool   `yaml:"s3Enabled"`
+	S3Endpoint          string `yaml:"s3Endpoint"`
+	S3Url               string `yaml:"s3Url"`
+	S3Bucket            string `yaml:"s3Bucket"`
+	S3Region            string `yaml:"s3Region"`
+	S3SecretAccessKeyID string `yaml:"S3SecretAccessKeyID"`
+	S3SecretAccessKey   string `yaml:"s3SecretAccessKey"`
 }
 
 // Parse parses the yaml file at path and returns a Config.

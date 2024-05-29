@@ -16,6 +16,7 @@ import (
 	"github.com/discuitnet/discuit/cli/newbadge"
 	"github.com/discuitnet/discuit/cli/populatepost"
 	"github.com/discuitnet/discuit/cli/serve"
+	"github.com/discuitnet/discuit/cli/storage"
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/golang-migrate/migrate/v4/database/mysql"
@@ -42,6 +43,7 @@ func main() {
 			addalluserstocommunity.Command,
 			newbadge.Command,
 			deleteuser.Command,
+			storage.Command,
 		},
 		DefaultCommand: "serve",
 		After:          discuitCLI.After,

@@ -9,10 +9,12 @@ require (
 	github.com/gomodule/redigo v1.8.4
 	github.com/gorilla/mux v1.8.0
 	github.com/h2non/bimg v1.1.5
-	golang.org/x/crypto v0.11.0
+	github.com/minio/minio-go/v7 v7.0.70
+	github.com/urfave/cli/v2 v2.27.2
+	golang.org/x/crypto v0.21.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030
-	golang.org/x/net v0.10.0
+	golang.org/x/net v0.23.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -22,13 +24,22 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v20.10.21+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/klauspost/compress v1.17.6 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
+	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
+	github.com/rs/xid v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/urfave/cli/v2 v2.27.2 // indirect
 	github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
 )
