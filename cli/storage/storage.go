@@ -18,10 +18,9 @@ var Command = &cli.Command{
 	Name:  "storage",
 	Usage: "Manage storage",
 	Subcommands: []*cli.Command{
-		// TODO: Get a image based off of the id
-		// TODO: Migrate images from/to S3 and local storage
 		{
-			Name: "migrate",
+			Name:  "migrate",
+			Usage: "Migrate images between local storage and S3 storage.",
 			Subcommands: []*cli.Command{
 				{
 					Name:  "to-s3",
@@ -30,11 +29,6 @@ var Command = &cli.Command{
 						&cli.BoolFlag{
 							Name:        "clean",
 							Usage:       "Clean local images after migration",
-							DefaultText: "false",
-						},
-						&cli.BoolFlag{
-							Name:        "dry-run",
-							Usage:       "Dry run",
 							DefaultText: "false",
 						},
 					},
@@ -52,6 +46,7 @@ var Command = &cli.Command{
 
 						// Initialize minio client object.
 						minioClient, err := minio.New(endpoint, &minio.Options{
+							Region: region,
 							Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 							Secure: useSSL,
 						})
@@ -135,7 +130,15 @@ var Command = &cli.Command{
 							filePath := image
 							contentType := "image/jpeg"
 
-							// TODO: Check if the image already exists in the bucket
+							// Check if the image already exists in the bucket
+							stat, err := minioClient.StatObject(ctx.Context, bucket, objectName, minio.StatObjectOptions{})
+							if err != nil {
+								return err
+							}
+							if stat.Size > 0 {
+								fmt.Printf("Image %s already exists in the bucket\n", objectName)
+								continue
+							}
 
 							// Upload the test file with FPutObject
 							info, err := minioClient.FPutObject(ctx.Context, bucket, objectName, filePath, minio.PutObjectOptions{ContentType: contentType})
@@ -160,7 +163,169 @@ var Command = &cli.Command{
 				{
 					Name:  "to-local",
 					Usage: "Migrate images to local storage",
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:        "clean",
+							Usage:       "Clean S3 images after migration",
+							DefaultText: "false",
+						},
+						&cli.BoolFlag{
+							Name:        "force",
+							Usage:       "Force download even if the image already exists",
+							DefaultText: "false",
+						},
+					},
 					Action: func(ctx *cli.Context) error {
+						conf := ctx.Context.Value("config").(*config.Config)
+						imagesToDownload := []string{}
+
+						// Get S3 credentials
+						endpoint := conf.S3Endpoint
+						region := conf.S3Region
+						bucket := conf.S3Bucket
+						accessKeyID := conf.S3SecretAccessKeyID
+						secretAccessKey := conf.S3SecretAccessKey
+						useSSL := true
+
+						// Initialize minio client object.
+						minioClient, err := minio.New(endpoint, &minio.Options{
+							Region: region,
+							Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+							Secure: useSSL,
+						})
+						if err != nil {
+							log.Fatalln(err)
+						}
+
+						// Get path to images dir
+						p := "images"
+						if conf.ImagesFolderPath != "" {
+							p = conf.ImagesFolderPath
+						}
+						p, err = filepath.Abs(p)
+						if err != nil {
+							log.Fatalf("Error attempting to set the images folder location (%s): %v", p, err)
+						}
+
+						// Get all images
+						for object := range minioClient.ListObjects(ctx.Context, bucket, minio.ListObjectsOptions{Recursive: true}) {
+							if object.Err != nil {
+								return object.Err
+							}
+							imagesToDownload = append(imagesToDownload, object.Key)
+						}
+
+						fmt.Printf("Found %d images to download\n", len(imagesToDownload))
+
+						for _, image := range imagesToDownload {
+							objectName := image
+							filePath := filepath.Join(p, objectName)
+
+							// Check if the image already exists
+							if _, err := os.Stat(filePath); err == nil && !ctx.Bool("force") {
+								fmt.Printf("Image %s already exists\n", objectName)
+								continue
+							}
+							if err != nil && !os.IsNotExist(err) {
+								return err
+							}
+
+							// Download the image
+							err = minioClient.FGetObject(ctx.Context, bucket, objectName, filePath, minio.GetObjectOptions{})
+							if err != nil {
+								return err
+							}
+
+							log.Printf("Successfully downloaded %s\n", objectName)
+
+							if ctx.Bool("clean") {
+								err = minioClient.RemoveObject(ctx.Context, bucket, objectName, minio.RemoveObjectOptions{})
+								if err != nil {
+									return err
+								}
+								fmt.Printf("Removed %s\n", objectName)
+							}
+						}
+
+						return nil
+					},
+				},
+			},
+		},
+		{
+			Name:  "clean",
+			Usage: "Clean storage",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "local",
+					Usage: "Clean local storage",
+					Action: func(ctx *cli.Context) error {
+						conf := ctx.Context.Value("config").(*config.Config)
+
+						// Get path to images dir
+						p := "images"
+						if conf.ImagesFolderPath != "" {
+							p = conf.ImagesFolderPath
+						}
+						p, err := filepath.Abs(p)
+						if err != nil {
+							log.Fatalf("Error attempting to set the images folder location (%s): %v", p, err)
+						}
+
+						// Get all images
+						err = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+							if !d.IsDir() {
+								err = os.Remove(path)
+								if err != nil {
+									return err
+								}
+								fmt.Printf("Removed %s\n", path)
+							}
+							return nil
+						})
+						if err != nil {
+							log.Fatalf("impossible to walk directories: %s", err)
+						}
+
+						return nil
+					},
+				},
+				{
+					Name:  "s3",
+					Usage: "Clean S3 storage",
+					Action: func(ctx *cli.Context) error {
+						conf := ctx.Context.Value("config").(*config.Config)
+
+						// Get S3 credentials
+						endpoint := conf.S3Endpoint
+						region := conf.S3Region
+						bucket := conf.S3Bucket
+						accessKeyID := conf.S3SecretAccessKeyID
+						secretAccessKey := conf.S3SecretAccessKey
+						useSSL := true
+
+						// Initialize minio client object.
+						minioClient, err := minio.New(endpoint, &minio.Options{
+							Region: region,
+							Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+							Secure: useSSL,
+						})
+						if err != nil {
+							log.Fatalln(err)
+						}
+
+						// Get all images
+						for object := range minioClient.ListObjects(ctx.Context, bucket, minio.ListObjectsOptions{Recursive: true}) {
+							if object.Err != nil {
+								return object.Err
+							}
+							err = minioClient.RemoveObject(ctx.Context, bucket, object.Key, minio.RemoveObjectOptions{})
+							if err != nil {
+								return err
+							}
+							fmt.Printf("Removed %s\n", object.Key)
+						}
+
 						return nil
 					},
 				},
