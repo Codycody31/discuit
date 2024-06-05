@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"database/sql"
 	"fmt"
 	"io/fs"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/discuitnet/discuit/config"
+	msql "github.com/discuitnet/discuit/internal/sql"
+	"github.com/discuitnet/discuit/internal/utils"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/urfave/cli/v2"
@@ -34,6 +37,7 @@ var Command = &cli.Command{
 					},
 					Action: func(ctx *cli.Context) error {
 						conf := ctx.Context.Value("config").(*config.Config)
+						db := ctx.Context.Value("db").(*sql.DB)
 						imagesToUpload := []string{}
 
 						// Get S3 credentials
@@ -79,7 +83,7 @@ var Command = &cli.Command{
 						// Check if the bucket already exists
 						bucketExists, err := minioClient.BucketExists(ctx.Context, bucket)
 						if err != nil {
-							return err
+							return fmt.Errorf("Failed to check if bucket %s exists: %v", bucket, err)
 						}
 						if !bucketExists {
 							err = minioClient.MakeBucket(ctx.Context, bucket, minio.MakeBucketOptions{Region: region})
@@ -89,7 +93,7 @@ var Command = &cli.Command{
 								if errBucketExists == nil && exists {
 									fmt.Printf("We already own %s\n", bucket)
 								} else {
-									return err
+									return fmt.Errorf("Failed to create bucket %s: %v", bucket, err)
 								}
 							} else {
 								fmt.Printf("Successfully created %s\n", bucket)
@@ -117,7 +121,7 @@ var Command = &cli.Command{
 
 								err = minioClient.SetBucketPolicy(ctx.Context, bucket, policy)
 								if err != nil {
-									return err
+									return fmt.Errorf("Failed to set policy on %s: %v", bucket, err)
 								}
 
 								fmt.Printf("Successfully set policy on %s\n", bucket)
@@ -125,15 +129,22 @@ var Command = &cli.Command{
 							}
 						}
 
+						// Array of the image id's
+						var imageIDs []string
+
 						for _, image := range imagesToUpload {
 							objectName := strings.Split(image, p+"/")[1]
-							filePath := image
-							contentType := "image/jpeg"
+							// filePath := image
+							// contentType := "image/jpeg"
 
 							// Check if the image already exists in the bucket
 							stat, err := minioClient.StatObject(ctx.Context, bucket, objectName, minio.StatObjectOptions{})
 							if err != nil {
-								return err
+								if err.Error() == "The specified key does not exist." {
+									// Ignore
+								} else {
+									return fmt.Errorf("Failed to check if image %s exists in the bucket: %v", objectName, err)
+								}
 							}
 							if stat.Size > 0 {
 								fmt.Printf("Image %s already exists in the bucket\n", objectName)
@@ -141,12 +152,12 @@ var Command = &cli.Command{
 							}
 
 							// Upload the test file with FPutObject
-							info, err := minioClient.FPutObject(ctx.Context, bucket, objectName, filePath, minio.PutObjectOptions{ContentType: contentType})
-							if err != nil {
-								return err
-							}
+							// info, err := minioClient.FPutObject(ctx.Context, bucket, objectName, filePath, minio.PutObjectOptions{ContentType: contentType})
+							// if err != nil {
+							// 	return fmt.Errorf("Failed to upload %s: %v", objectName, err)
+							// }
 
-							log.Printf("Successfully uploaded %s of size %d\n", objectName, info.Size)
+							// log.Printf("Successfully uploaded %s of size %d\n", objectName, info.Size)
 
 							if ctx.Bool("clean") {
 								err = os.Remove(image)
@@ -155,6 +166,60 @@ var Command = &cli.Command{
 								}
 								fmt.Printf("Removed %s\n", image)
 							}
+
+							// Extract the id from the image path and add it to the array (/36/5/{last part of id})
+							idParts := strings.Split(image, "/")
+							id := idParts[len(idParts)-3] + idParts[len(idParts)-2]
+
+							// The last part is the id but we need to strip the extension and anything including and after the underscore
+							id = id + strings.Split(strings.Split(idParts[len(idParts)-1], "_")[0], ".")[0]
+
+							// Add id to the array if it's not already in there
+							if id != "" && !utils.StringInSlice(id, imageIDs) {
+								// TODO: Convert to string equivalent of uid.ID
+								imageIDs = append(imageIDs, id)
+							}
+
+							// if len(imageIDs) > 1000 {
+							// 	tx, err := db.BeginTx(ctx.Context, nil)
+							// 	// Build where clause
+
+							// 	// TODO: Check if length of array is greater than 1000, and then call DB to change the store name for the images
+							// 	query, args := msql.BuildUpdateQuery("images", []msql.ColumnValue{{Name: "store", Value: "s3"}}, fmt.Sprintf("id IN %s", msql.BuildInClause(imageIDs)))
+							// 	fmt.Println(query)
+							// 	fmt.Println(args)
+
+							// 	if _, err = tx.ExecContext(ctx.Context, query, args...); err != nil {
+							// 		return err
+							// 	}
+
+							// 	if err = tx.Commit(); err != nil {
+							// 		return err
+							// 	}
+
+							// 	fmt.Println("Successfully changed the store name for the images")
+							// }
+						}
+
+						if len(imageIDs) > 0 {
+							tx, err := db.BeginTx(ctx.Context, nil)
+							// Build where clause
+
+							// TODO: Check if length of array is greater than 1000, and then call DB to change the store name for the images
+							query, args := msql.BuildUpdateQuery("images", []msql.ColumnValue{{Name: "store_name", Value: "s3"}}, fmt.Sprintf("WHERE id IN %s", msql.BuildInClause(imageIDs)))
+							fmt.Println(query)
+							fmt.Println(args)
+							return nil
+
+							if _, err = tx.ExecContext(ctx.Context, query, args...); err != nil {
+								return err
+							}
+
+							if err = tx.Commit(); err != nil {
+								return err
+							}
+
+							fmt.Println("Successfully changed the store name for the images")
 						}
 
 						return nil

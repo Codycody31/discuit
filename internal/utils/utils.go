@@ -195,3 +195,12 @@ func ExtractStringsFromMap(m map[string]any, trim bool) map[string]string {
 	}
 	return strMap
 }
+
+func StringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}

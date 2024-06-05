@@ -389,3 +389,47 @@ func Transact(ctx context.Context, db *sql.DB, f func(tx *sql.Tx) error) error {
 
 	return tx.Commit()
 }
+
+func BuildUpdateQuery(table string, cols []ColumnValue, where string) (query string, args []any) {
+	var b strings.Builder
+	fmt.Fprintf(&b, "UPDATE %s SET ", table)
+	for i, item := range cols {
+		if i > 0 {
+			b.WriteString(", ")
+		} else {
+
+		}
+
+		if item.Value == nil {
+			fmt.Fprintf(&b, "%s = NULL", item.Name)
+			continue
+		}
+		if _, ok := item.Value.(string); ok {
+			fmt.Fprintf(&b, "%s = '%v'", item.Name, item.Value)
+			continue
+		} else {
+			fmt.Fprintf(&b, "%s = ?", item.Name)
+		}
+
+		args = append(args, item.Value)
+	}
+	b.WriteString(" ")
+	b.WriteString(where)
+	query = b.String()
+	return
+}
+
+func BuildInClause(ids []string) string {
+	var b strings.Builder
+	b.WriteString("(")
+	for i, id := range ids {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString("UNHEX('")
+		b.WriteString(id)
+		b.WriteString("')")
+	}
+	b.WriteString(")")
+	return b.String()
+}
