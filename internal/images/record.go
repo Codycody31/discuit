@@ -72,6 +72,25 @@ func (r *ImageRecord) ScanDestinations() []any {
 	}
 }
 
+// TODO: Rename to better reflect the function's purpose.
+func GetImageRecordsx(ctx context.Context, db *sql.DB, diskName string, position int, limit int) ([]*ImageRecord, error) {
+	query := msql.BuildSelectQuery("images", imageRecordSelectColumns, nil, "WHERE store_name = ? ORDER BY created_at DESC LIMIT ?, ?")
+
+	rows, err := db.QueryContext(ctx, query, diskName, position, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	records, err := scanImageRecords(db, rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, ErrImageNotFound
+	}
+	return records, nil
+}
+
 // GetImageRecords returns a slice of image records. If no images were found it
 // returns ErrImageNotFound.
 func GetImageRecords(ctx context.Context, db *sql.DB, ids ...uid.ID) ([]*ImageRecord, error) {

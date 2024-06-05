@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"crypto/sha1"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"log"
@@ -10,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/discuitnet/discuit/config"
+	"github.com/discuitnet/discuit/internal/images"
 	msql "github.com/discuitnet/discuit/internal/sql"
 	"github.com/discuitnet/discuit/internal/utils"
 	"github.com/minio/minio-go/v7"
@@ -38,7 +41,6 @@ var Command = &cli.Command{
 					Action: func(ctx *cli.Context) error {
 						conf := ctx.Context.Value("config").(*config.Config)
 						db := ctx.Context.Value("db").(*sql.DB)
-						imagesToUpload := []string{}
 
 						// Get S3 credentials
 						endpoint := conf.S3Endpoint
@@ -68,17 +70,23 @@ var Command = &cli.Command{
 							return err
 						}
 
-						// Get all images
-						err = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
-							if !d.IsDir() {
-								imagesToUpload = append(imagesToUpload, path)
-							}
-							return nil
-						})
-						if err != nil {
-							return err
-						}
-						fmt.Printf("Found %d images to upload\n", len(imagesToUpload))
+						// TODO: Rather than reading the filesystem, call the DB to get the images that need to be uploaded
+
+						// TODO: Wrap in while loop so w get 1000-5000 records, handle image upload, after completion set store_name to disk
+
+						// images, err = db.
+
+						// // Get all images
+						// err = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+						// 	if !d.IsDir() {
+						// 		imagesToUpload = append(imagesToUpload, path)
+						// 	}
+						// 	return nil
+						// })
+						// if err != nil {
+						// 	return err
+						// }
+						// fmt.Printf("Found %d images to upload\n", len(imagesToUpload))
 
 						// Check if the bucket already exists
 						bucketExists, err := minioClient.BucketExists(ctx.Context, bucket)
@@ -132,95 +140,125 @@ var Command = &cli.Command{
 						// Array of the image id's
 						var imageIDs []string
 
-						for _, image := range imagesToUpload {
-							objectName := strings.Split(image, p+"/")[1]
-							// filePath := image
-							// contentType := "image/jpeg"
+						currentStart := 0
+						currentLimit := 5000
+						imagesStillLeft := true
 
-							// Check if the image already exists in the bucket
-							stat, err := minioClient.StatObject(ctx.Context, bucket, objectName, minio.StatObjectOptions{})
+						successfullUploads := 0
+						failedUploads := 0
+
+						for imagesStillLeft {
+							// TODO: this is done incorrectly I believe, seems to repeat the same images (sometimes, may not be a real problem)
+							records, err := images.GetImageRecordsx(ctx.Context, db, "disk", currentStart, currentLimit)
 							if err != nil {
-								if err.Error() == "The specified key does not exist." {
-									// Ignore
-								} else {
-									return fmt.Errorf("Failed to check if image %s exists in the bucket: %v", objectName, err)
+								if err.Error() == "image not found" {
+									imagesStillLeft = false
+									continue
 								}
-							}
-							if stat.Size > 0 {
-								fmt.Printf("Image %s already exists in the bucket\n", objectName)
-								continue
+
+								return fmt.Errorf("Failed to get image records: %v", err)
 							}
 
-							// Upload the test file with FPutObject
-							// info, err := minioClient.FPutObject(ctx.Context, bucket, objectName, filePath, minio.PutObjectOptions{ContentType: contentType})
-							// if err != nil {
-							// 	return fmt.Errorf("Failed to upload %s: %v", objectName, err)
-							// }
+							// fmt.Printf("Found %d images to upload\n", len(records))
 
-							// log.Printf("Successfully uploaded %s of size %d\n", objectName, info.Size)
+							for _, record := range records {
+								imagesToUpload := []string{}
+								hash := sha1.Sum(record.ID.Bytes())
+								hex := hex.EncodeToString(hash[:])
+								folder := hex[:2] + "/" + hex[2:3]
+								filename := hex[3:]
+								// objectName := folder + "/" + filename + record.Format.Extension()
+								contentType := "image/" + strings.Split(record.Format.Extension(), ".")[1]
+								// filePath := filepath.Join(p, folder, filename+record.Format.Extension())
+								imagesExistForID := false
 
-							if ctx.Bool("clean") {
-								err = os.Remove(image)
+								// If the directory doesn't exist, do nothing
+								if _, err := os.Stat(filepath.Join(p, folder)); os.IsNotExist(err) {
+									continue
+								}
+
+								err = filepath.WalkDir(p+"/"+folder, func(path string, d fs.DirEntry, err error) error {
+									if !d.IsDir() {
+										tbase := filepath.Base(path)
+										if strings.Contains(tbase, filename) {
+											imagesToUpload = append(imagesToUpload, path)
+											imagesExistForID = true
+										}
+									}
+									return nil
+								})
 								if err != nil {
 									return err
 								}
-								fmt.Printf("Removed %s\n", image)
+
+								// fmt.Printf("Found %d images to upload in folder %s\n", len(imagesToUpload), folder)
+
+								for _, image := range imagesToUpload {
+									objectName := folder + "/" + filepath.Base(image)
+									filePath := filepath.Join(p, objectName)
+
+									// Check if the image already exists
+									stat, err := minioClient.StatObject(ctx.Context, bucket, objectName, minio.StatObjectOptions{})
+									if err != nil {
+										if err.Error() == "The specified key does not exist." {
+											// Ignore
+										} else {
+											fmt.Errorf("Failed to check if image %s exists in the bucket: %v", objectName, err)
+											continue
+										}
+									}
+									if stat.Size > 0 {
+										fmt.Printf("Image %s already exists in the bucket\n", objectName)
+										continue
+									}
+
+									info, err := minioClient.FPutObject(ctx.Context, bucket, objectName, filePath, minio.PutObjectOptions{ContentType: contentType})
+									if err != nil {
+										failedUploads++
+										fmt.Errorf("Failed to upload %s: %v", objectName, err)
+										continue
+									}
+
+									successfullUploads++
+									log.Printf("Successfully uploaded %s of size %d\n", objectName, info.Size)
+								}
+
+								// Add id to the array if it's not already in there
+								if imagesExistForID && !utils.StringInSlice(record.ID.String(), imageIDs) {
+									imageIDs = append(imageIDs, record.ID.String())
+								}
+
+								// TODO: Every X records in imageIDs, update the store_name to s3
 							}
 
-							// Extract the id from the image path and add it to the array (/36/5/{last part of id})
-							idParts := strings.Split(image, "/")
-							id := idParts[len(idParts)-3] + idParts[len(idParts)-2]
-
-							// The last part is the id but we need to strip the extension and anything including and after the underscore
-							id = id + strings.Split(strings.Split(idParts[len(idParts)-1], "_")[0], ".")[0]
-
-							// Add id to the array if it's not already in there
-							if id != "" && !utils.StringInSlice(id, imageIDs) {
-								// TODO: Convert to string equivalent of uid.ID
-								imageIDs = append(imageIDs, id)
-							}
-
-							// if len(imageIDs) > 1000 {
-							// 	tx, err := db.BeginTx(ctx.Context, nil)
-							// 	// Build where clause
-
-							// 	// TODO: Check if length of array is greater than 1000, and then call DB to change the store name for the images
-							// 	query, args := msql.BuildUpdateQuery("images", []msql.ColumnValue{{Name: "store", Value: "s3"}}, fmt.Sprintf("id IN %s", msql.BuildInClause(imageIDs)))
-							// 	fmt.Println(query)
-							// 	fmt.Println(args)
-
-							// 	if _, err = tx.ExecContext(ctx.Context, query, args...); err != nil {
-							// 		return err
-							// 	}
-
-							// 	if err = tx.Commit(); err != nil {
-							// 		return err
-							// 	}
-
-							// 	fmt.Println("Successfully changed the store name for the images")
-							// }
+							currentStart += currentLimit
 						}
 
 						if len(imageIDs) > 0 {
 							tx, err := db.BeginTx(ctx.Context, nil)
-							// Build where clause
+							if err != nil {
+								return fmt.Errorf("Failed to start transaction: %v", err)
+							}
 
-							// TODO: Check if length of array is greater than 1000, and then call DB to change the store name for the images
 							query, args := msql.BuildUpdateQuery("images", []msql.ColumnValue{{Name: "store_name", Value: "s3"}}, fmt.Sprintf("WHERE id IN %s", msql.BuildInClause(imageIDs)))
-							fmt.Println(query)
-							fmt.Println(args)
-							return nil
 
 							if _, err = tx.ExecContext(ctx.Context, query, args...); err != nil {
+								if err := tx.Rollback(); err != nil {
+									log.Println("images.SaveImage rollback error: ", err)
+								}
 								return err
 							}
 
 							if err = tx.Commit(); err != nil {
-								return err
+								return fmt.Errorf("Failed to commit transaction: %v", err)
 							}
 
-							fmt.Println("Successfully changed the store name for the images")
+							// TODO: Probably should also wipe the imageIDs array when done
 						}
+
+						fmt.Printf("Successfully uploaded %d images\n", successfullUploads)
+						fmt.Printf("Failed to upload %d images\n", failedUploads)
+						fmt.Printf("Total images: %d\n", successfullUploads+failedUploads)
 
 						return nil
 					},
