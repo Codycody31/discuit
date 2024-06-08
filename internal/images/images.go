@@ -55,6 +55,10 @@ func init() {
 	if err := registerStore(newDiskStore()); err != nil {
 		panic(err)
 	}
+
+	if err := registerStore(newS3Store()); err != nil {
+		panic(err)
+	}
 }
 
 var (
@@ -543,6 +547,7 @@ func ClearCache() error {
 // calling r.Valid before calling this function.
 func getImage(ctx context.Context, db *sql.DB, r *request, cacheEnabled bool) ([]byte, error) {
 	if cacheEnabled {
+		// TODO: The fuck should I do with cached images? Should they be stored in S3? I think so given we want to support systems without any file storage abilities
 		if image, err := getCachedImage(r); err != nil {
 			if !os.IsNotExist(err) {
 				log.Printf("getCachedImage error: %v\n", err)
@@ -562,6 +567,7 @@ func getImage(ctx context.Context, db *sql.DB, r *request, cacheEnabled bool) ([
 	if store == nil {
 		return nil, fmt.Errorf("image store %v is not found", record.StoreName)
 	}
+	fmt.Println(store.name())
 
 	image, err := store.get(record)
 	if err != nil {
