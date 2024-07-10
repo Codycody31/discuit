@@ -33,6 +33,7 @@ require (
 	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/joho/godotenv v1.5.1
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

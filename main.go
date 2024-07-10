@@ -11,6 +11,7 @@ import (
 	"github.com/discuitnet/discuit/cli/fixhotness"
 	"github.com/discuitnet/discuit/cli/forcepasschange"
 	"github.com/discuitnet/discuit/cli/hardreset"
+	"github.com/discuitnet/discuit/cli/injectconfig"
 	"github.com/discuitnet/discuit/cli/migrate"
 	"github.com/discuitnet/discuit/cli/mod"
 	"github.com/discuitnet/discuit/cli/newbadge"
@@ -44,6 +45,7 @@ func main() {
 			newbadge.Command,
 			deleteuser.Command,
 			storage.Command,
+			injectconfig.Command,
 		},
 		DefaultCommand: "serve",
 		After:          discuitCLI.After,

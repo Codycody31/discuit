@@ -1,6 +1,5 @@
 node_modules
 .vscode
-.idea
 /ui/dist/
 /config.yaml
 /ui-config.yaml
@@ -9,4 +8,3 @@ node_modules
 /logs
 /discuit
 /images
-.secrets
