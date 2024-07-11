@@ -1,8 +1,12 @@
 node_modules
 .vscode
+.idea
 /ui/dist/
 /config.yaml
+/ui-config.yaml
+/.env
 /cookies
 /logs
 /discuit
 /images
+.secrets

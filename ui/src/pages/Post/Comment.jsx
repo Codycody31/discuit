@@ -7,7 +7,12 @@ import AddComment from './AddComment';
 import { useDispatch } from 'react-redux';
 import { kRound, mfetchjson, stringCount, toTitleCase, userGroupSingular } from '../../helper';
 import Dropdown from '../../components/Dropdown';
-import { loginPromptToggled, snackAlert, snackAlertError } from '../../slices/mainSlice';
+import {
+  loginPromptToggled,
+  saveToListModalOpened,
+  snackAlert,
+  snackAlertError,
+} from '../../slices/mainSlice';
 import TimeAgo from '../../components/TimeAgo';
 import ModalConfirm from '../../components/Modal/ModalConfirm';
 import ReportModal from '../../components/ReportModal';
@@ -19,6 +24,7 @@ import { useVoting } from '../../hooks';
 import UserProPic, { GhostUserProPic, UserLink } from '../../components/UserProPic';
 import { LinkOrDiv } from '../../components/Utils';
 import { userHasSupporterBadge } from '../User';
+import CommentShareButton, { CommentShareDropdownItems } from './CommentShareButton';
 
 const Diagnostics = false; // process.env.NODE_ENV !== 'production';
 const MaxCommentDepth = 15;
@@ -56,6 +62,8 @@ const Comment = ({
       };
     });
   };
+
+  const commentShareURL = `/${community.name}/post/${postId}/${comment.id}`;
 
   const deleted = comment.deletedAt !== null;
 
@@ -339,6 +347,10 @@ const Comment = ({
     );
   }
 
+  const handleSave = () => {
+    dispatch(saveToListModalOpened(comment.id, 'comment'));
+  };
+
   const upCls = {};
   const downCls = {};
   if (vote === true) {
@@ -361,21 +373,25 @@ const Comment = ({
   const showReport = loggedIn && !deleted && user.id !== comment.userId;
   // const commentShareURL = `/${community.name}/post/${postId}?focus=${comment.id}#${comment.id}`;
 
-  const getModActionsItems = () => {
+  const getModActionsItems = (disabled = false) => {
     const checkboxId = `ch-mods-${comment.id}`;
+    const cls = (str = '') => {
+      return 'dropdown-item' + (disabled ? ' is-disabled' : '') + (str ? ` ${str}` : '');
+    };
     return (
       <>
-        <div className="dropdown-item" onClick={() => setConfirmDeleteOpen(true, 'mods')}>
+        <div className={cls()} onClick={() => !disabled && setConfirmDeleteOpen(true, 'mods')}>
           Delete
         </div>
         {user.id === comment.userId && (
-          <div className="dropdown-item is-non-reactive">
+          <div className={cls('is-non-reactive')}>
             <div className="checkbox">
               <input
                 id={checkboxId}
                 type="checkbox"
                 checked={comment.userGroup === 'mods' ? true : false}
-                onChange={(e) => setUserGroup(e.target.checked ? 'mods' : 'normal')}
+                onChange={(e) => !disabled && setUserGroup(e.target.checked ? 'mods' : 'normal')}
+                disabled={disabled}
               />
               <label htmlFor={checkboxId}>Speaking officially</label>
             </div>
@@ -389,9 +405,6 @@ const Comment = ({
     const checkboxId = `ch-admins-${comment.id}`;
     return (
       <>
-        <div className="dropdown-item" onClick={() => alert(`ID: ${comment.id}`)}>
-          Comment ID
-        </div>
         <div className="dropdown-item" onClick={() => setConfirmDeleteOpen(true, 'admins')}>
           Delete
         </div>
@@ -408,6 +421,9 @@ const Comment = ({
             </div>
           </div>
         )}
+        <div className="dropdown-item" onClick={() => alert(`ID: ${comment.id}`)}>
+          Comment ID
+        </div>
       </>
     );
   };
@@ -581,7 +597,7 @@ const Comment = ({
               Reply
             </button>
           )}
-          {!deleted && isMobile && (userMod || isAdmin || showEditDelete || showReport) && (
+          {!deleted && isMobile && (
             <>
               {showReport && (
                 <ReportModal
@@ -595,7 +611,7 @@ const Comment = ({
               )}
               <Dropdown target={<button className="button-text">More</button>}>
                 <div className="dropdown-list">
-                  {/*<CommentShareDropdownItems url={commentShareURL} prefix="Share to " />*/}
+                  <CommentShareDropdownItems url={commentShareURL} />
                   {showEditDelete && (
                     <>
                       <div className="dropdown-item" onClick={handleOnEdit}>
@@ -611,16 +627,21 @@ const Comment = ({
                       Report
                     </div>
                   )}
-                  {userMod && (
-                    <>
-                      <div className="dropdown-item is-topic">Mod actions</div>
-                      {getModActionsItems()}
-                    </>
+                  {loggedIn && (
+                    <div className="dropdown-item" onClick={handleSave}>
+                      Save to list
+                    </div>
                   )}
                   {isAdmin && (
                     <>
                       <div className="dropdown-item is-topic">Admin actions</div>
                       {getAdminActionsItems()}
+                    </>
+                  )}
+                  {(isAdmin || userMod) && (
+                    <>
+                      <div className="dropdown-item is-topic">Mod actions</div>
+                      {getModActionsItems(!userMod)}
                     </>
                   )}
                 </div>
@@ -629,7 +650,7 @@ const Comment = ({
           )}
           {!deleted && !isMobile && (
             <>
-              {/*<CommentShareButton url={commentShareURL} />*/}
+              <CommentShareButton url={commentShareURL} prefix="Share via " />
               {showEditDelete && (
                 <>
                   <button className="button-text" onClick={handleOnEdit}>
@@ -643,16 +664,10 @@ const Comment = ({
               {showReport && (
                 <ReportModal target={comment} targetType="comment" disabled={isBanned} />
               )}
-              {userMod && (
-                <Dropdown
-                  target={
-                    <button className="button-text" style={{ color: 'var(--color-red)' }}>
-                      Mod actions
-                    </button>
-                  }
-                >
-                  <div className="dropdown-list">{getModActionsItems()}</div>
-                </Dropdown>
+              {loggedIn && (
+                <button className="button-text" onClick={handleSave}>
+                  Save
+                </button>
               )}
               {isAdmin && (
                 <Dropdown
@@ -663,6 +678,22 @@ const Comment = ({
                   }
                 >
                   <div className="dropdown-list">{getAdminActionsItems()}</div>
+                </Dropdown>
+              )}
+              {isAdmin && !userMod && (
+                <button className="button-text" style={{ color: 'rgb(var(--base-6))' }}>
+                  Mod actions
+                </button>
+              )}
+              {userMod && (
+                <Dropdown
+                  target={
+                    <button className="button-text" style={{ color: 'var(--color-red)' }}>
+                      Mod actions
+                    </button>
+                  }
+                >
+                  <div className="dropdown-list">{getModActionsItems()}</div>
                 </Dropdown>
               )}
             </>
