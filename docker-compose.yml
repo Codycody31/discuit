@@ -2,7 +2,10 @@ version: "3"
 
 services:
   discuit:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: discuit/discuit:latest
     restart: unless-stopped
     ports:
       - "8080:80"

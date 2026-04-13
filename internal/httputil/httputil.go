@@ -11,16 +11,30 @@ import (
 	"golang.org/x/net/html"
 )
 
-// GetIP returns the IP address associated with r.
+// GetIP returns the IP address associated with r. IPv4 addresses are returned
+// in IPv4-mapped IPv6 format (e.g. "::ffff:192.168.1.1") for compatibility with
+// MariaDB's inet6 column type.
 func GetIP(r *http.Request) string {
+	var raw string
 	if header := r.Header.Get("X-Forwarded-For"); header != "" {
 		addresses := strings.Split(header, ",")
 		if len(addresses) > 0 {
-			return strings.TrimSpace(addresses[len(addresses)-1])
+			raw = strings.TrimSpace(addresses[len(addresses)-1])
 		}
 	}
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	return host
+	if raw == "" {
+		raw, _, _ = net.SplitHostPort(r.RemoteAddr)
+	}
+
+	// Ensure IPv4 addresses are stored in IPv4-mapped IPv6 format so they are
+	// accepted by MariaDB's inet6 data type.
+	if ip := net.ParseIP(raw); ip != nil {
+		if v4 := ip.To4(); v4 != nil {
+			return "::ffff:" + v4.String()
+		}
+		return ip.String()
+	}
+	return raw
 }
 
 var httpClient = &http.Client{

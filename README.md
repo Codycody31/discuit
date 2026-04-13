@@ -88,10 +88,8 @@ Note: Do not install the discuit binary using `go install` or move it somewhere 
 
 1. **Build the Docker Image**
 
-   > **Note**: If you need to run discuit on a different architecture, simply change the Dockerfile in the `-f` flag to the appropriate Dockerfile for your architecture, currently we support `linux/amd64` (docker/Dockerfile.amd64), and `linux/arm64` (docker/Dockerfile.arm64).
-
    ```shell
-   docker build -t discuit -f docker/Dockerfile.amd64 .
+   docker build -t discuit -f docker/Dockerfile .
    ```
 
 2. **Run the Docker Container**
